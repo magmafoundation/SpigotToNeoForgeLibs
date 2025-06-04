@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.magmafoundation"
-version = System.getenv("RELEASE_VERSION") ?: "1.0.0-SNAPSHOT"
+version = System.getenv("RELEASE_VERSION") ?: "1.0.0"
 
 java {
     toolchain {
