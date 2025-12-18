@@ -3,6 +3,7 @@ name: Build and Publish
 on:
   push:
     branches: [ main ]
+    tags: ['*']
   release:
     types: [ published ]
   workflow_dispatch:
@@ -28,10 +29,8 @@ jobs:
       - name: Set release version (from tag or default)
         id: get_version
         env:
-          TAG_FROM_EVENT: ${{ github.event.release.tag_name }}
+          TAG_FROM_EVENT: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          # Prefer the release event's tag_name (for release events), otherwise
-          # fall back to GITHUB_REF when the run was triggered by a tag push.
           if [ -n "$TAG_FROM_EVENT" ]; then
             VERSION="$TAG_FROM_EVENT"
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -39,9 +38,14 @@ jobs:
           else
             VERSION=1.0.0
           fi
-          # Strip a leading 'v' if present (v1.2.3 -> 1.2.3)
           VERSION="${VERSION#v}"
           echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: show refs and version
+        run: |
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "github.ref_name=${{ github.ref_name }}"
+          echo "Derived RELEASE_VERSION=$RELEASE_VERSION"
+
       - name: Build and publish
-        run: ./gradlew publish --no-daemon
+        run: ./gradlew publish --no-daemon -PreleaseVersion="$RELEASE_VERSION"
