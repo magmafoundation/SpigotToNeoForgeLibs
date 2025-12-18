@@ -17,6 +17,11 @@ repositories {
     mavenCentral()
 }
 
+fun org.gradle.api.tasks.bundling.Jar.deletePackage(packageName: String) {
+    val path = packageName.replace('.', '/')
+    exclude("$path/**")
+}
+
 dependencies {
     implementation("org.yaml:snakeyaml:2.2")
     implementation("commons-lang:commons-lang:2.6")
@@ -34,6 +39,9 @@ tasks.shadowJar {
     }
     relocate("org.yaml.snakeyaml", "org.magmafoundation.magma.deps.snakeyaml")
     relocate("org.apache.commons.lang", "org.magmafoundation.magma.deps.commonslang")
+
+    deletePackage("org.apache.commons.lang.enum")
+    deletePackage("org.apache.commons.lang.enums")
 }
 
 tasks.build {
