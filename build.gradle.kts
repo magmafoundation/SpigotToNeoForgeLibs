@@ -19,6 +19,7 @@ repositories {
 
 dependencies {
     implementation("org.yaml:snakeyaml:2.2")
+    implementation("commons-lang:commons-lang:2.6")
 }
 
 tasks.test {
@@ -29,8 +30,10 @@ tasks.shadowJar {
     archiveClassifier = null
     dependencies {
         include(dependency("org.yaml:snakeyaml:2.2"))
+        include(dependency("commons-lang:commons-lang:2.6"))
     }
     relocate("org.yaml.snakeyaml", "org.magmafoundation.magma.deps.snakeyaml")
+    relocate("org.apache.commons.lang", "org.magmafoundation.magma.deps.commonslang")
 }
 
 tasks.build {
