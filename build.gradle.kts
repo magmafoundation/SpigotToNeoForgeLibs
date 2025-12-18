@@ -5,7 +5,6 @@ plugins {
 }
 
 group = "org.magmafoundation"
-// Prefer a passed Gradle property `-PreleaseVersion=...`, otherwise use the env var set by CI, otherwise fallback
 version = (project.findProperty("releaseVersion") as String?) ?: System.getenv("RELEASE_VERSION") ?: "1.0.0"
 
 java {

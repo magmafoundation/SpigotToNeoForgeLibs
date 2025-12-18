@@ -2,6 +2,7 @@ name: Build and Publish
 
 on:
   push:
+    # trigger on pushes to main branch and on any tag push
     branches: [ main ]
     tags: ['*']
   release:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  build:
     runs-on: ubuntu-latest
     env:
       MAGMA_REPO_USER: ${{ secrets.MAGMA_REPO_USER }}
@@ -26,26 +27,72 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set release version (from tag or default)
+      - name: Derive release version (tag or default)
         id: get_version
-        env:
-          TAG_FROM_EVENT: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          if [ -n "$TAG_FROM_EVENT" ]; then
-            VERSION="$TAG_FROM_EVENT"
+          # Prefer a release event tag_name, otherwise use the ref_name for tag pushes; fallback to 1.0.0
+          if [ -n "${{ github.event.release && github.event.release.tag_name || '' }}" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
           else
-            VERSION=1.0.0
+            VERSION="1.0.0"
           fi
+          # strip leading 'v' if present
           VERSION="${VERSION#v}"
           echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: show refs and version
+      - name: Show refs and derived version (debug)
         run: |
           echo "GITHUB_REF=$GITHUB_REF"
           echo "github.ref_name=${{ github.ref_name }}"
           echo "Derived RELEASE_VERSION=$RELEASE_VERSION"
 
-      - name: Build and publish
+      - name: Build (always)
+        run: ./gradlew build --no-daemon -PreleaseVersion="$RELEASE_VERSION"
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' }}
+    env:
+      MAGMA_REPO_USER: ${{ secrets.MAGMA_REPO_USER }}
+      MAGMA_REPO_PASS: ${{ secrets.MAGMA_REPO_PASS }}
+    steps:
+      - name: Checkout code (with tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Restore derived version (if not set, derive from ref)
+        run: |
+          if [ -z "$RELEASE_VERSION" ]; then
+            if [ -n "${{ github.event.release && github.event.release.tag_name || '' }}" ]; then
+              VERSION="${{ github.event.release.tag_name }}"
+            elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+              VERSION="${GITHUB_REF#refs/tags/}"
+            else
+              echo "No tag found and not a release event; skipping publish"
+              exit 1
+            fi
+            VERSION="${VERSION#v}"
+            echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+
+      - name: Show tag and version (debug)
+        run: |
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "github.ref_name=${{ github.ref_name }}"
+          echo "RELEASE_VERSION=$RELEASE_VERSION"
+
+      - name: Publish (tagged release)
         run: ./gradlew publish --no-daemon -PreleaseVersion="$RELEASE_VERSION"
+        env:
+          MAGMA_REPO_USER: ${{ secrets.MAGMA_REPO_USER }}
+          MAGMA_REPO_PASS: ${{ secrets.MAGMA_REPO_PASS }}
